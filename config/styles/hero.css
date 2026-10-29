@@ -1,0 +1,7 @@
+/* The hero background is dark, so light and dark mode share the same text colors
+   (the dark-mode defaults). */
+:root {
+  --hero-title-color: #e2e8f0;
+  --hero-title-accent-color: color-mix(in oklch, var(--accent) 70%, white);
+  --hero-desc-color: #94a3b8;
+}

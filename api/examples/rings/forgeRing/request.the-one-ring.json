@@ -1,0 +1,7 @@
+{
+  "kind": "one",
+  "metal": "gold",
+  "smith_id": "smith_sauron",
+  "dark_lord_approval": "tok_mount_doom_2c7e",
+  "inscription": { "text": "Ash nazg durbatuluk", "language": "black_speech", "visible_when_heated": true }
+}

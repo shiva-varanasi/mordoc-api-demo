@@ -1,0 +1,7 @@
+specs:
+  - id: fellowship
+    spec: fellowship.yaml
+  - id: rings
+    spec: rings.yaml
+  - id: watch
+    spec: watch.yaml

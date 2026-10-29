@@ -1,0 +1,10 @@
+{
+  "waypoints": [
+    { "place": "Hobbiton", "day": 0 },
+    { "place": "Bree", "day": 4, "hazards": ["black riders"] },
+    { "place": "Weathertop", "day": 9, "hazards": ["nazgul"] },
+    { "place": "Rivendell", "day": 17 }
+  ],
+  "total_days": 17,
+  "warning": "Avoid the main road after dark."
+}

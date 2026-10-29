@@ -1,0 +1,12 @@
+{
+  "name": "Middle-earth API",
+  "description": "A fictional, LOTR inspired API reference that showcases how Mordoc renders OpenAPI specifications.",
+  "baseUrl": "https://api-demo.mordoc.dev",
+  "defaultLanguage": "en",
+  "metadata": {
+    "ogImage": "/images/metadata/og-image.png",
+    "ogType": "website",
+    "twitterCard": "summary_large_image",
+    "twitterSite": "@middle-earth-api"
+  }
+}

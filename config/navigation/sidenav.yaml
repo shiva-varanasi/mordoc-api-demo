@@ -1,0 +1,48 @@
+- label: Welcome
+  path: /introduction
+
+- label: Guides
+  expanded: true
+  children:
+    - label: Authentication
+      path: /guides/authentication
+    - label: Errors
+      path: /guides/errors
+    - label: Pagination
+      path: /guides/pagination
+    - label: How This Demo Is Built
+      path: /guides/how-this-is-built
+
+- label: Fellowship API
+  path: /api/fellowship
+  expanded: true
+  children:
+    - operation: listMembers
+    - operation: getMember
+    - operation: formFellowship
+    - operation: updateQuest
+    - operation: dismissMember
+
+- label: Rings of Power API
+  path: /api/rings
+  expanded: true
+  children:
+    - operation: forgeRing
+    - operation: getRing
+    - operation: bearRing
+    - operation: destroyRing
+
+- label: Middle-earth Watch API
+  path: /api/watch
+  expanded: true
+  children:
+    - operation: lightBeacon
+    - operation: getRoute
+    - operation: sightEnemy
+    - operation: beaconLitEvent
+    - operation: ringBearerSpottedEvent
+- label: References
+  expanded: true
+  children:
+    - label: Source Repository
+      path: /references/github-repo

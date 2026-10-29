@@ -1,0 +1,225 @@
+openapi: '3.1.0'
+info:
+  title: Middle-earth Watch API
+  version: '1.4.0'
+  description: Light the beacons, plan routes across Middle-earth and report sightings of enemies. Also delivers webhooks when something important happens.
+servers:
+  - url: https://api.middle-earth.example/v3
+    description: Minas Tirith (production)
+  - url: https://sandbox.middle-earth.example/v3
+    description: Weathertop (sandbox)
+security:
+  - bearerAuth: []
+paths:
+  /beacons:
+    post:
+      tags: [Beacons]
+      summary: Light a beacon
+      operationId: lightBeacon
+      description: Lights a beacon in the chain of Gondor and relays the call for aid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LightBeaconRequest' }
+            examples:
+              Amon Din:
+                value:
+                  beacon: amon_din
+                  message: Gondor calls for aid
+      responses:
+        '201':
+          description: Beacon lit.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Beacon' }
+              examples:
+                Default:
+                  value:
+                    id: bcn_amon_din
+                    name: amon_din
+                    state: lit
+                    next: bcn_eilenach
+        '429':
+          description: The beacon was already lit recently.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /routes:
+    get:
+      tags: [Routes]
+      summary: Plan a route
+      operationId: getRoute
+      description: Plans a route between two places. Mordor is not a valid destination for walking.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Starting place, such as `Hobbiton`.
+          schema: { type: string }
+        - name: to
+          in: query
+          required: true
+          description: Destination, such as `Rivendell`.
+          schema: { type: string }
+        - name: avoid
+          in: query
+          description: Hazards to avoid.
+          schema:
+            type: array
+            items: { type: string, enum: [mountains, mines, forests, orcs, spiders] }
+        - name: pace
+          in: query
+          description: Travelling pace.
+          schema: { type: string, enum: [leisurely, brisk, forced_march], default: brisk }
+      responses:
+        '200':
+          description: The planned route.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Route' }
+        '404':
+          description: No route exists.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /sightings:
+    post:
+      tags: [Sightings]
+      summary: Report a sighting
+      operationId: sightEnemy
+      description: Reports an enemy sighting. Sightings of Nazgul are escalated automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Sighting' }
+      responses:
+        '202':
+          description: Sighting accepted for review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sighting' }
+        '422':
+          description: The sighting could not be processed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+webhooks:
+  beaconLit:
+    post:
+      tags: [Webhooks]
+      summary: Beacon lit
+      operationId: beaconLitEvent
+      description: Sent when a beacon in your chain has been lit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BeaconLitEvent' }
+            examples:
+              Default:
+                value:
+                  id: evt_01
+                  type: beacon.lit
+                  created_at: '3019-03-10T04:00:00Z'
+                  data: { id: bcn_minas_tirith, name: minas_tirith, state: lit, next: bcn_amon_din }
+      responses:
+        '200': { description: Acknowledge the event by returning any 2xx status. }
+  ringBearerSpotted:
+    post:
+      tags: [Webhooks]
+      summary: Ring-bearer spotted
+      operationId: ringBearerSpottedEvent
+      description: Sent when a ring-bearer is sighted by the Watch.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RingBearerSpottedEvent' }
+      responses:
+        '200': { description: Acknowledge the event by returning any 2xx status. }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  schemas:
+    LightBeaconRequest:
+      type: object
+      required: [beacon]
+      properties:
+        beacon:
+          type: string
+          description: The beacon to light.
+          enum: [amon_din, eilenach, nardol, erelas, min_rimmon, calenhad, halifirien]
+        message: { type: string, description: Optional message to relay along the chain. }
+    Beacon:
+      type: object
+      required: [id, name, state]
+      properties:
+        id: { type: string, description: Unique identifier. }
+        name: { type: string, description: Display name. }
+        state: { type: string, enum: [dark, lit, relayed] }
+        next: { type: [string, 'null'], description: The next beacon in the chain. }
+    Waypoint:
+      type: object
+      required: [place, day]
+      properties:
+        place: { type: string, description: Name of the stop. }
+        day: { type: integer, description: Day of the journey on which the party arrives. }
+        hazards: { type: array, items: { type: string }, description: Hazards encountered here. }
+    Route:
+      type: object
+      required: [waypoints, total_days]
+      properties:
+        waypoints:
+          type: array
+          items: { $ref: '#/components/schemas/Waypoint' }
+        total_days: { type: integer, description: Estimated days of travel. }
+        warning: { type: string, description: "A warning about the route, if there is one." }
+    Sighting:
+      type: object
+      required: [creature, location]
+      properties:
+        id: { type: string, readOnly: true, description: Unique identifier. }
+        creature:
+          type: string
+          description: What was sighted.
+          enum: [orc, uruk_hai, warg, nazgul, balrog, troll, eagle, ent]
+        location: { type: string, description: Where it was seen. }
+        count: { type: integer, minimum: 1, default: 1, description: How many were seen. }
+        flying: { type: boolean, description: Whether it was airborne. }
+        seen_at: { type: string, format: date-time, description: When it was seen. }
+    WebhookEvent:
+      type: object
+      required: [id, type, created_at]
+      properties:
+        id: { type: string, description: Unique event identifier. }
+        type: { type: string, description: Event type. }
+        created_at: { type: string, format: date-time, description: When the record was created. }
+    BeaconLitEvent:
+      allOf:
+        - $ref: '#/components/schemas/WebhookEvent'
+        - type: object
+          required: [data]
+          properties:
+            data: { $ref: '#/components/schemas/Beacon' }
+    RingBearerSpottedEvent:
+      allOf:
+        - $ref: '#/components/schemas/WebhookEvent'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [bearer_id, location]
+              properties:
+                bearer_id: { type: string, description: The ring-bearer. }
+                location: { type: string, description: Where they were spotted. }
+                accompanied_by: { type: array, items: { type: string }, description: Companions seen with them. }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, examples: [you_shall_not_pass] }
+        message: { type: string, description: Human-readable explanation of the problem. }
+        request_id: { type: string, description: Identifier to quote when contacting support. }

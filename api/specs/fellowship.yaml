@@ -1,0 +1,283 @@
+openapi: '3.1.0'
+info:
+  title: Fellowship API
+  version: '3.0.1'
+  description: Assemble, inspect and manage the Company of the Ring. Every member has a race, a skill set and a current quest.
+servers:
+  - url: https://api.middle-earth.example/v3
+    description: Rivendell (production)
+  - url: https://sandbox.middle-earth.example/v3
+    description: The Shire (sandbox)
+security:
+  - bearerAuth: []
+paths:
+  /members:
+    get:
+      tags: [Members]
+      summary: List members
+      operationId: listMembers
+      description: Returns the members of a fellowship, newest first.
+      parameters:
+        - name: race
+          in: query
+          description: Only return members of this race.
+          schema:
+            $ref: '#/components/schemas/Race'
+        - name: limit
+          in: query
+          description: Maximum number of members to return.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: cursor
+          in: query
+          description: Opaque cursor from a previous response's `next_cursor`.
+          schema: { type: string }
+      responses:
+        '200':
+          description: A page of members.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, has_more]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Member' }
+                  has_more: { type: boolean }
+                  next_cursor: { type: [string, 'null'] }
+              examples:
+                Default:
+                  value:
+                    data:
+                      - id: mem_frodo
+                        name: Frodo Baggins
+                        race: hobbit
+                        status: active
+                        skills: [stealth, resolve]
+                        home: { name: The Shire, settlement: Bag End }
+                        created_at: '3018-09-23T09:00:00Z'
+                    has_more: true
+                    next_cursor: cur_samwise
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /fellowships:
+    post:
+      tags: [Fellowships]
+      summary: Form a fellowship
+      operationId: formFellowship
+      description: Forms a new fellowship from existing members and gives it a first quest.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: Any unique string. Retrying with the same key returns the original fellowship instead of forming a second one.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FormFellowshipRequest' }
+            examples:
+              Council of Elrond:
+                value:
+                  name: The Fellowship of the Ring
+                  member_ids: [mem_frodo, mem_samwise, mem_gandalf, mem_aragorn]
+                  quest: { title: Destroy the One Ring, destination: Mount Doom, deadline_days: 180 }
+      responses:
+        '201':
+          description: Fellowship formed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Fellowship' }
+        '409':
+          description: A member already belongs to another fellowship.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: The request was well formed but could not be processed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /members/{member_id}:
+    get:
+      tags: [Members]
+      summary: Retrieve a member
+      operationId: getMember
+      description: Retrieves a single member, including their race-specific traits.
+      parameters:
+        - name: member_id
+          in: path
+          required: true
+          description: The member's identifier, such as `mem_frodo`.
+          schema: { type: string }
+      responses:
+        '200':
+          description: The member.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Members]
+      summary: Dismiss a member
+      operationId: dismissMember
+      deprecated: true
+      description: Removes a member from their fellowship. Deprecated; use a quest update with `status` set to `disbanded` instead.
+      parameters:
+        - name: member_id
+          in: path
+          required: true
+          description: The member's identifier.
+          schema: { type: string }
+      responses:
+        '204': { description: Member dismissed. }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /fellowships/{fellowship_id}/quest:
+    patch:
+      tags: [Fellowships]
+      summary: Update a quest
+      operationId: updateQuest
+      description: Changes the status or destination of the fellowship's current quest.
+      parameters:
+        - name: fellowship_id
+          in: path
+          required: true
+          description: The fellowship's identifier.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuestUpdate' }
+      responses:
+        '200':
+          description: The updated fellowship.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Fellowship' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  responses:
+    Unauthorized:
+      description: Missing or invalid token.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: The resource does not exist.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Race:
+      type: string
+      description: The race of a member.
+      enum: [hobbit, elf, dwarf, man, wizard]
+    Region:
+      type: object
+      description: A place in Middle-earth. Regions nest, so the Shire can sit inside Eriador.
+      required: [name]
+      properties:
+        name: { type: string, description: Name of the region. }
+        settlement: { type: string, description: Optional settlement within the region. }
+        parent: { $ref: '#/components/schemas/Region' }
+    HobbitTraits:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, const: hobbit }
+        second_breakfasts: { type: integer, minimum: 0, description: Meals taken per day beyond breakfast. }
+        pipe_weed_brand: { type: string, description: Preferred brand of pipe-weed. }
+    ElfTraits:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, const: elf }
+        age_years: { type: integer, description: Age in years. Often several thousand. }
+        sight: { type: string, enum: [keen, keener, legendary], description: How far they can see. }
+    DwarfTraits:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, const: dwarf }
+        beard_length_cm: { type: number, description: Length of the beard in centimetres. }
+        grudges: { type: array, items: { type: string }, description: Active grudges. }
+    ManTraits:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, const: man }
+        kingdom: { type: string, description: Kingdom of origin. }
+        lineage: { type: string, description: Line of descent. }
+    Member:
+      type: object
+      required: [id, name, race, status]
+      properties:
+        id: { type: string, readOnly: true, description: Unique identifier. }
+        name: { type: string, description: Display name. }
+        race: { $ref: '#/components/schemas/Race' }
+        status:
+          type: string
+          enum: [active, wounded, fallen, abandoned]
+        skills:
+          type: array
+          items: { type: string }
+        home: { $ref: '#/components/schemas/Region' }
+        traits:
+          description: Traits specific to the member's race.
+          oneOf:
+            - $ref: '#/components/schemas/HobbitTraits'
+            - $ref: '#/components/schemas/ElfTraits'
+            - $ref: '#/components/schemas/DwarfTraits'
+            - $ref: '#/components/schemas/ManTraits'
+          discriminator:
+            propertyName: kind
+        created_at: { type: string, format: date-time, description: When the record was created. }
+    Quest:
+      type: object
+      required: [title, destination]
+      properties:
+        title: { type: string, description: What the fellowship is trying to do. }
+        destination: { type: string, description: Where it has to be done. }
+        deadline_days: { type: integer, minimum: 1, default: 365, description: Days allowed to complete the quest. }
+    FormFellowshipRequest:
+      type: object
+      required: [name, member_ids, quest]
+      properties:
+        name: { type: string, maxLength: 80, description: Name of the fellowship. }
+        member_ids:
+          type: array
+          minItems: 1
+          maxItems: 9
+          items: { type: string }
+          description: Members to include.
+        quest: { $ref: '#/components/schemas/Quest' }
+    Fellowship:
+      type: object
+      required: [id, name, members, quest]
+      properties:
+        id: { type: string, description: Unique identifier. }
+        name: { type: string, description: Display name. }
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/Member' }
+        quest: { $ref: '#/components/schemas/Quest' }
+        status: { type: string, description: Current state of the fellowship., enum: [forming, travelling, split, disbanded, victorious] }
+    QuestUpdate:
+      type: object
+      properties:
+        status: { type: string, enum: [travelling, split, disbanded, victorious] }
+        destination: { type: string, description: New destination. }
+        reason:
+          type: string
+          description: Why the status changed.
+      dependentRequired:
+        status: [reason]
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, examples: [you_shall_not_pass] }
+        message: { type: string, description: Human-readable explanation of the problem. }
+        request_id: { type: string, description: Identifier to quote when contacting support. }
